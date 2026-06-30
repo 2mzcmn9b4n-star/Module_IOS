@@ -4,7 +4,7 @@
 const premiumResponse = {
     "subscription": {
         "status": "active",
-        "tier": "fan",
+        "tier": "mega_fan",
         "plan": "monthly",
         "is_active": true,
         "is_premium": true,
@@ -56,18 +56,50 @@ const premiumBenefits = {
 let body = $response.body;
 let url = $request.url;
 
+// Helper: check if string is valid JSON
+function isJSON(str) {
+    if (typeof str !== 'string') return false;
+    str = str.trim();
+    if (str.length === 0) return false;
+    if (str[0] !== '{' && str[0] !== '[') return false;
+    try {
+        JSON.parse(str);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 try {
+    // If body is not JSON, just pass through (could be HTML, binary, etc.)
+    if (!isJSON(body)) {
+        console.log("Crunchyroll: Non-JSON response, passing through. URL: " + url);
+        $done({body});
+    }
+
     let obj = JSON.parse(body);
-    
+
+    // Check if this is a subscription status endpoint
     if (url.includes('/subs/v3/subscriptions/') || url.includes('/subs/v1/subscriptions/')) {
+
+        // If it's the benefits endpoint
         if (url.includes('/benefits')) {
             obj = premiumBenefits;
-        } else if (url.includes('/subscriptions/')) {
-            if (obj.subscription) obj.subscription = premiumResponse.subscription;
-            else if (obj.subscriptions && Array.isArray(obj.subscriptions)) obj.subscriptions = [premiumResponse.subscription];
-            else if (obj.data) obj.data = premiumResponse.subscription;
-            else obj = premiumResponse;
         }
+        // If it's the main subscription endpoint
+        else if (url.includes('/subscriptions/')) {
+            if (obj.subscription) {
+                obj.subscription = premiumResponse.subscription;
+            } else if (obj.subscriptions && Array.isArray(obj.subscriptions)) {
+                obj.subscriptions = [premiumResponse.subscription];
+            } else if (obj.data) {
+                obj.data = premiumResponse.subscription;
+            } else {
+                obj = premiumResponse;
+            }
+        }
+
+        // Also handle eligibility endpoint
         if (url.includes('/eligibility/')) {
             obj.eligible = true;
             obj.can_subscribe = true;
@@ -76,7 +108,8 @@ try {
             obj.subscription_status = "active";
         }
     }
-    
+
+    // Handle account endpoint to show premium
     if (url.includes('/accounts/v1/me') && !url.includes('/profile')) {
         if (obj.account) {
             obj.account.subscription_status = "active";
@@ -90,7 +123,8 @@ try {
             obj.can_watch_premium = true;
         }
     }
-    
+
+    // Handle product endpoint to show premium products as purchased
     if (url.includes('/subs/v2/products/')) {
         if (obj.product) {
             obj.product.owned = true;
@@ -98,10 +132,11 @@ try {
             obj.product.subscription_status = "active";
         }
     }
-    
+
     body = JSON.stringify(obj);
+
 } catch (e) {
-    console.log("Crunchyroll unlock error: " + e.message);
+    console.log("Crunchyroll unlock error: " + e.message + " | URL: " + url);
 }
 
 $done({body});
