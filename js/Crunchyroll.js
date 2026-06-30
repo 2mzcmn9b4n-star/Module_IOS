@@ -82,29 +82,25 @@ function isJSON(str) {
 }
 
 try {
-    // If body is not JSON, just pass through (could be HTML, binary, etc.)
+    // If body is not JSON, just pass through
     if (!isJSON(body)) {
         console.log("Crunchyroll: Non-JSON response, passing through. URL: " + url);
     } else {
         let obj = JSON.parse(body);
 
-        // === SUBSCRIPTION STATE ENDPOINT (NEW from logs) ===
-        // /subs/v1/accounts/{UUID}/subscriptions/state
+        // === SUBSCRIPTION STATE ENDPOINT ===
         if (url.includes('/subscriptions/state')) {
             obj = subscriptionState;
             modified = true;
         }
 
         // === SUBSCRIPTION STATUS ENDPOINTS ===
-        // /subs/v3/subscriptions/{id} or /subs/v1/subscriptions/{id}
         if (url.includes('/subs/v3/subscriptions/') || url.includes('/subs/v1/subscriptions/')) {
 
-            // Benefits endpoint: /subs/v1/subscriptions/{id}/benefits
             if (url.includes('/benefits')) {
                 obj = premiumBenefits;
                 modified = true;
             }
-            // Products endpoint: /subs/v1/subscriptions/{id}/products
             else if (url.includes('/products')) {
                 if (obj.subscription || obj.subscriptions || obj.data) {
                     if (obj.subscription) {
@@ -121,7 +117,6 @@ try {
                 }
                 modified = true;
             }
-            // Third party products
             else if (url.includes('/third_party_products')) {
                 obj = {
                     "products": [{
@@ -134,7 +129,6 @@ try {
                 };
                 modified = true;
             }
-            // Main subscription endpoint
             else if (url.includes('/subscriptions/')) {
                 if (obj.subscription || obj.subscriptions || obj.data) {
                     if (obj.subscription) {
@@ -152,7 +146,6 @@ try {
                 modified = true;
             }
 
-            // Eligibility endpoint: /subs/v1/subscriptions/{id}/eligibility
             if (url.includes('/eligibility/')) {
                 obj.eligible = true;
                 obj.can_subscribe = true;
@@ -164,7 +157,6 @@ try {
         }
 
         // === ACCOUNT ENDPOINTS ===
-        // /accounts/v1/me or /accounts/v1/{UUID}/multiprofile
         if (url.includes('/accounts/v1/')) {
             if (obj.account) {
                 obj.account.subscription_status = "active";
@@ -194,7 +186,6 @@ try {
         }
 
         // === PRODUCT ENDPOINTS ===
-        // /subs/v2/products/{sku} or /subs/v2/products?source=itunes
         if (url.includes('/subs/v2/products')) {
             if (obj.product) {
                 obj.product.owned = true;
@@ -233,4 +224,5 @@ try {
     console.log("Crunchyroll unlock error: " + e.message + " | URL: " + url);
 }
 
-$done({body});
+// ✅ CORRECT FORMAT for Shadowrocket/Quantumult X
+$done({ response: { body: body, status: 200 } });
